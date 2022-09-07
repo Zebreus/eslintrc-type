@@ -10,7 +10,8 @@ import ts from "typescript";
 
 import prettierConfig from "./.prettierrc.json";
 import {checksum as previousChecksum} from "./checksum.json";
-import {$schema} from "./tsconfig.json";
+
+const $schema = "https://json.schemastore.org/eslintrc.json";
 
 async function main(): Promise<void> {
     // When running the `dev` script, a temporary `dev` file is touched in the project root.
@@ -27,7 +28,7 @@ async function main(): Promise<void> {
     })();
 
     // Fetch the latest schema from schemastore.org.
-    const tsconfigJsonSchema = await new Promise<json2Ts.JSONSchema>((resolve, reject) => {
+    const eslintrcJsonSchema = await new Promise<json2Ts.JSONSchema>((resolve, reject) => {
         https.get($schema, (res) => {
             let source = "";
             res.on("error", reject)
@@ -42,12 +43,12 @@ async function main(): Promise<void> {
 
     // Generate TypeScript types and interfaces from the fetched schema.
     // This needs to be transformed to better suit our needs (TypeScript transformer below).
-    const json2TsResult = await json2Ts.compile(tsconfigJsonSchema, "Tsconfig", {
+    const json2TsResult = await json2Ts.compile(eslintrcJsonSchema, "Eslintrc", {
         bannerComment: "/**\n * THIS FILE WAS GENERATED. BE WARY OF EDITING BY HAND.\n */",
     });
 
     // Create a source file from the `json-schema-to-typescript` result.
-    const initialSourceFile = ts.createSourceFile("tsconfig_type.d.ts", json2TsResult, ts.ScriptTarget.ES2018);
+    const initialSourceFile = ts.createSourceFile("eslintrc_type.d.ts", json2TsResult, ts.ScriptTarget.ES2018);
 
     // Transform the source file.
     const transformedSourceFile = ts.transform(initialSourceFile, [transformer]).transformed[0];
@@ -100,13 +101,14 @@ async function main(): Promise<void> {
     if (!devMode) {
         [
             // Is hardcoding this blasphemous? If so, please file an issue and tell me I'm a buffoon.
-            'git config --global user.email "harrysolovay@gmail.com"',
-            'git config --global user.name "Harry Solovay"',
+            // Yes it is, but I will just do the same again.
+            'git config --global user.email "zebreus@madmanfred.com"',
+            'git config --global user.name "Zebreus"',
             // Even though the only change is the `package.json`...
             "git add .",
             // Can be a chore since we force a minor version bump below.
             // Message kind is therefore irrelevant.
-            "git commit -m 'chore: unknown – regenerating from schemastore.org'",
+            "git commit -m 'Regenerate type from schemastore.org'",
         ].forEach((command) => {
             cp.execSync(command, {
                 cwd: __dirname,
@@ -137,7 +139,7 @@ async function main(): Promise<void> {
 
 // Our main transformer is composed of the following transformers.
 function getTransformerFactories(): ts.TransformerFactory<ts.Node>[] {
-    return [attachSchemaPropToTopLevel, renameTsconfigTypeForceIntersectionsRemoveOtherExports, removeStandaloneUnknownRecsInUnions, removeStringMergedWithStringLiterals, removeUnknownIndexSignatures];
+    return [attachSchemaPropToTopLevel, renameEslintrcTypeForceIntersectionsRemoveOtherExports, removeStandaloneUnknownRecsInUnions, removeStringMergedWithStringLiterals, removeUnknownIndexSignatures];
 }
 
 // This is our main transformer.
@@ -152,14 +154,14 @@ const transformer: ts.TransformerFactory<ts.SourceFile> = (ctx) => (sourceFile) 
 };
 
 // Adds `$schema?: string` field to the `CompilerOptionsDefinition` interface.
-// ^ this isn't a standard `tsconfig.json` field, but it is a standard `package.json` field,
+// ^ this isn't a standard `.eslintrc.json` field, but it is a standard `package.json` field,
 // and is essential for JSON LSPs outside of VSCode.
 const attachSchemaPropToTopLevel: ts.TransformerFactory<ts.Node> = (ctx) => (sourceFile) => {
     return ts.visitEachChild(
         sourceFile,
         (statement) => {
             if (ts.isInterfaceDeclaration(statement) && statement.name.text === "CompilerOptionsDefinition") {
-                return ts.factory.updateInterfaceDeclaration(statement, statement.decorators, statement.modifiers, statement.name, statement.typeParameters, statement.heritageClauses, ts.factory.createNodeArray([ts.factory.createPropertySignature(undefined, ts.factory.createIdentifier("$schema"), ts.factory.createToken(ts.SyntaxKind.QuestionToken), ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral("https://json.schemastore.org/tsconfig.json", false))), ...statement.members]));
+                return ts.factory.updateInterfaceDeclaration(statement, statement.decorators, statement.modifiers, statement.name, statement.typeParameters, statement.heritageClauses, ts.factory.createNodeArray([ts.factory.createPropertySignature(undefined, ts.factory.createIdentifier("$schema"), ts.factory.createToken(ts.SyntaxKind.QuestionToken), ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral($schema, false))), ...statement.members]));
             }
             return statement;
         },
@@ -168,7 +170,7 @@ const attachSchemaPropToTopLevel: ts.TransformerFactory<ts.Node> = (ctx) => (sou
 };
 
 // Recursively turns any union type nodes into intersection nodes.
-// This is to be used in `renameTsconfigTypeForceIntersectionsRemoveOtherExports`
+// This is to be used in `renameEslintrcTypeForceIntersectionsRemoveOtherExports`
 const unionsToIntersections: ts.TransformerFactory<ts.Node> = (ctx) => (node) => {
     return ts.visitEachChild(
         node,
@@ -185,20 +187,20 @@ const unionsToIntersections: ts.TransformerFactory<ts.Node> = (ctx) => (node) =>
     );
 };
 
-// 1. Removes export modifiers from all statements except for the `Tsconfig` type alias declaration.
-// 2. Renames the following type to `Tsconfig`.
-// 3. Turns the `Tsconfig` type's child unions into intersections.
+// 1. Removes export modifiers from all statements except for the `Eslintrc` type alias declaration.
+// 2. Renames the following type to `Eslintrc`.
+// 3. Turns the `Eslintrc` type's child unions into intersections.
 //
 // ```
 // export type JSONSchemaForTheTypeScriptCompilerSConfigurationFile = CompilerOptionsDefinition & CompileOnSaveDefinition & TypeAcquisitionDefinition & ExtendsDefinition & WatchOptionsDefinition & BuildOptionsDefinition & TsNodeDefinition & (FilesDefinition | ExcludeDefinition | IncludeDefinition | ReferencesDefinition);
 // ```
-const renameTsconfigTypeForceIntersectionsRemoveOtherExports: ts.TransformerFactory<ts.Node> = (ctx) => (sourceFile) => {
+const renameEslintrcTypeForceIntersectionsRemoveOtherExports: ts.TransformerFactory<ts.Node> = (ctx) => (sourceFile) => {
     return ts.visitEachChild(
         sourceFile,
         (statement) => {
             if (ts.isTypeAliasDeclaration(statement)) {
                 // Return the same node but with the new identifier.
-                return ts.factory.updateTypeAliasDeclaration(statement, statement.decorators, statement.modifiers, ts.factory.createIdentifier("Tsconfig"), statement.typeParameters, unionsToIntersections(ctx)(statement.type) as ts.TypeNode);
+                return ts.factory.updateTypeAliasDeclaration(statement, statement.decorators, statement.modifiers, ts.factory.createIdentifier("Eslintrc"), statement.typeParameters, unionsToIntersections(ctx)(statement.type) as ts.TypeNode);
             }
             if (ts.isInterfaceDeclaration(statement)) {
                 // Return the same nodes but without any export modifiers.
