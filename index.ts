@@ -41,6 +41,9 @@ async function main(): Promise<void> {
         });
     });
 
+    // Set title as the main property will be generated from this.
+    eslintrcJsonSchema.title = "Eslintrc"
+
     // Generate TypeScript types and interfaces from the fetched schema.
     // This needs to be transformed to better suit our needs (TypeScript transformer below).
     const json2TsResult = await json2Ts.compile(eslintrcJsonSchema, "Eslintrc", {
@@ -160,7 +163,7 @@ const attachSchemaPropToTopLevel: ts.TransformerFactory<ts.Node> = (ctx) => (sou
     return ts.visitEachChild(
         sourceFile,
         (statement) => {
-            if (ts.isInterfaceDeclaration(statement) && statement.name.text === "CompilerOptionsDefinition") {
+            if (ts.isInterfaceDeclaration(statement) && statement.name.text === "Eslintrc") {
                 return ts.factory.updateInterfaceDeclaration(statement, statement.decorators, statement.modifiers, statement.name, statement.typeParameters, statement.heritageClauses, ts.factory.createNodeArray([ts.factory.createPropertySignature(undefined, ts.factory.createIdentifier("$schema"), ts.factory.createToken(ts.SyntaxKind.QuestionToken), ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral($schema, false))), ...statement.members]));
             }
             return statement;
@@ -198,10 +201,10 @@ const renameEslintrcTypeForceIntersectionsRemoveOtherExports: ts.TransformerFact
     return ts.visitEachChild(
         sourceFile,
         (statement) => {
-            if (ts.isTypeAliasDeclaration(statement)) {
-                // Return the same node but with the new identifier.
-                return ts.factory.updateTypeAliasDeclaration(statement, statement.decorators, statement.modifiers, ts.factory.createIdentifier("Eslintrc"), statement.typeParameters, unionsToIntersections(ctx)(statement.type) as ts.TypeNode);
-            }
+            // if (ts.isTypeAliasDeclaration(statement)) {
+            //     // Return the same node but with the new identifier.
+            //     return ts.factory.updateTypeAliasDeclaration(statement, statement.decorators, statement.modifiers, ts.factory.createIdentifier("Eslintrc"), statement.typeParameters, unionsToIntersections(ctx)(statement.type) as ts.TypeNode);
+            // }
             if (ts.isInterfaceDeclaration(statement)) {
                 // Return the same nodes but without any export modifiers.
                 return ts.factory.updateInterfaceDeclaration(
