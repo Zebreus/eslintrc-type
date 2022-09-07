@@ -126,6 +126,7 @@ async function main(): Promise<void> {
         // that I keep forever open.
         await sv({
             releaseAs: "minor",
+            releaseCommitMessageFormat: "Release version {{currentTag}}",
             skip: {
                 changelog: true,
             },
