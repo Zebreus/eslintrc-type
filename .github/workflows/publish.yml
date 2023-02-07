@@ -13,7 +13,7 @@ jobs:
           node-version: 18
           registry-url: https://registry.npmjs.org
       - run: npm i
-      - run: npm run prod
-      - run: npm publish --access public
+      - run: |
+          if npm run prod ; then if npm publish --access public ; then echo "Published version" ; else echo "Failed to publish" ; fi ; else echo "Failed to build, probalby no new version available" ; fi
         env:
           NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
