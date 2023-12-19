@@ -231,9 +231,9 @@ export interface ParserOptions {
      */
     ecmaVersion?: 3 | 5 | 6 | 2015 | 7 | 2016 | 8 | 2017 | 9 | 2018 | 10 | 2019 | 11 | 2020 | 12 | 2021 | 13 | 2022 | 14 | 2023 | "latest";
     /**
-     * set to "script" (default) or "module" if your code is in ECMAScript modules
+     * set to "script" (default), "commonjs", or "module" if your code is in ECMAScript modules
      */
-    sourceType?: "script" | "module";
+    sourceType?: "script" | "module" | "commonjs";
 }
 export interface PossibleErrors {
     /**
